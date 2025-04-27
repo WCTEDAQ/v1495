@@ -10,13 +10,13 @@
 
 #include <json/json.h>
 
-#include <caen++/v1495.hpp>
+#include <caen++/v812.hpp>
 
 #include "common.hpp"
 
 void usage(const char* argv0) {
   std::cout
-    << "This program writes values to registers of a CAEN V1495 VME module\n"
+    << "This program writes values to registers of a CAEN V812B VME module\n"
        "Usage: " << argv0 << " [options] [filename]\n"
        "Allowed options:\n"
        "  --help or -h:              print this message.\n"
@@ -44,8 +44,8 @@ int main(int argc, char** argv) {
         { "arg",     required_argument, nullptr, 'a' },
         { "conet",   required_argument, nullptr, 'c' },
         { "help",    no_argument,       nullptr, 'h' },
-        { "link",    required_argument, nullptr, 'l' },
-        { "vme",     required_argument, nullptr, 'v' }
+        { "link",    required_argument, nullptr, 'l' }
+        //{ "vme",     required_argument, nullptr, 'v' }
       };
 
       int c = getopt_long(argc, argv, "a:c:hl:v:", options, nullptr);
@@ -68,9 +68,9 @@ int main(int argc, char** argv) {
           };
           connection.link = str_to_link(optarg);
           break;
-        case 'v':
-          connection.vme = str_to_uint32(optarg, 16) << 16;
-          break;
+        //case 'v':
+          //connection.vme = str_to_uint32(optarg, 16) << 16;
+          //break;
         case '?':
           return 1;
       };
@@ -93,21 +93,32 @@ int main(int argc, char** argv) {
 
     if (input != &std::cin) delete input;
 
-    std::vector<std::pair<uint16_t, uint32_t>> values(json.size());
-    auto i = values.begin();
     for (auto j = json.begin(); j != json.end(); ++j) {
-      i->first  = str_to_uint16(j.key().asCString(), 16);
-      i->second = str_to_uint32(j->asCString(), 16);
-      ++i;
-    };
 
-    caen::V1495 v1495(connection);
-    std::cout << "writing v1495 registers with base address "
-              << std::hex << connection.vme << std::endl;
+      Json::Value json_cfd = json[j.key().asCString()];
 
-    for (auto [ reg, value ] : values)
-      v1495.write32(reg, value);
+      std::vector<std::pair<uint16_t, uint16_t>> values(json_cfd.size());
+      auto i = values.begin();
+      for (auto k = json_cfd.begin(); k != json_cfd.end(); ++k, ++i) {
+        //std::cout << "key   " << k.key().asCString() << std::endl;
+        //std::cout << "value " << k->asCString() << std::endl;
+        i->first  = str_to_uint16(k.key().asCString(), 16);
+        i->second = str_to_uint16(k->asCString(), 16);
+      }
 
+      connection.vme = str_to_uint32(j.key().asCString(), 16) << 16;
+      try {
+        caen::V812 v812(connection);
+        std::cout << "writing CFD registers with base address "
+                  << std::hex << connection.vme << std::endl;
+        for (auto [ reg, value ] : values){
+          v812.write16(reg, value);
+        }
+      } catch (std::exception& e) {
+        std::cerr << argv[0] << ": " << e.what() << std::endl;
+      };
+
+    }
     return 0;
 
   } catch (std::exception& e) {

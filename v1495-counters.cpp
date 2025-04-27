@@ -2,6 +2,9 @@
 
 #include <cstdio>
 #include <cstring>
+#include <iomanip>
+#include <vector>
+#include <string>
 
 #include <getopt.h>
 
@@ -92,16 +95,27 @@ int main(int argc, char** argv) {
         connection.arg = str_to_uint32(arg);
 
     caen::V1495 v1495(connection);
-    for (int i = 0; i < sizeof(counters) / sizeof(*counters); ++i)
+
+    // print counters
+    for (int i = 1; i < sizeof(counters) / sizeof(*counters); i++) {
       std::cout
+        << std::left
+        << std::setw(4)
+        << i-1
+        << std::setw(7)
         << counters[i].name
         << ": "
-        << v1495.read32(counters[i].address)
-        << '\n';
+        << std::setw(12)
+        << v1495.read32(counters[i].address);
+      if (i%4==0) std::cout << std::endl;
+      if (i%32==0) std::cout << std::endl;
+    }
+    std::cout << std::endl;
 
     if (reset) v1495.write32(0x3002, 1);
 
     return 0;
+
   } catch (std::exception& e) {
     std::cerr << argv[0] << ": " << e.what() << std::endl;
     return 1;
